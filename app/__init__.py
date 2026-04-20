@@ -1,0 +1,2 @@
+"""Snort dashboard application package."""
+

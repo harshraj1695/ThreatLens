@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snort3 IDS Dashboard</title>
+<link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">S3</div>
+    <div>
+      <h1 style="font-size:15px;font-weight:600;">Snort3 IDS Dashboard</h1>
+      <div class="header-sub" id="headerSub">AFPacket · Real-time intrusion detection</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="iface-badge" id="ifaceBadge">eth0</span>
+    <div class="status-dot offline" id="statusDot"></div>
+    <span class="live-badge" id="liveBadge">CONNECTING</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Stat Cards -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Alerts</div>
+      <div class="stat-value c-accent" id="statTotal">0</div>
+      <div class="stat-sub">since monitoring started</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Critical / High</div>
+      <div class="stat-value c-red" id="statCritical">0</div>
+      <div class="stat-sub">priority 1–2 alerts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Unique Source IPs</div>
+      <div class="stat-value c-orange" id="statIPs">0</div>
+      <div class="stat-sub">attacking hosts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Last Alert</div>
+      <div class="stat-value" id="statLast" style="font-size:13px;font-weight:500;color:var(--text2);padding-top:6px;">—</div>
+      <div class="stat-sub" id="statLastMsg">no alerts yet</div>
+    </div>
+  </div>
+
+  <!-- Live feed + top IPs -->
+  <div class="grid-3">
+
+    <!-- Alert Feed -->
+    <div class="panel" style="grid-column: span 2;">
+      <div class="panel-header">
+        <span class="panel-title">Live Alert Feed</span>
+        <span class="panel-count" id="feedCount">0 alerts</span>
+      </div>
+      <div class="filter-bar">
+        <label>Severity</label>
+        <select id="filterSev" onchange="applyFilters()">
+          <option value="">All</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <label>Category</label>
+        <select id="filterCat" onchange="applyFilters()">
+          <option value="">All</option>
+        </select>
+        <label>Search</label>
+        <input type="text" id="filterSearch" placeholder="IP or message..." oninput="applyFilters()" style="width:160px;">
+        <button class="filter-clear" onclick="clearFilters()">Clear</button>
+      </div>
+      <div class="alert-header">
+        <span>Time</span>
+        <span>Proto</span>
+        <span>Message</span>
+        <span>Category</span>
+        <span class="col-dst">Source → Dest</span>
+      </div>
+      <div class="alert-feed" id="alertFeed">
+        <div class="empty">
+          <div class="empty-icon">S3</div>
+          Waiting for Snort alerts...<br>
+          <small style="color:var(--text3);margin-top:4px;display:block;">Make sure Snort is running with AFPacket on eth0</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Source IPs -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Top Source IPs</span>
+      </div>
+      <div class="bar-list" id="topIPs">
+        <div style="color:var(--text3);font-size:12px;padding:12px 0;">No data yet</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Categories + Protocol + Sparkline -->
+  <div class="grid-2">
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Attack Categories</span>
+      </div>
+      <div class="bar-list" id="catBars">
+        <div style="color:var(--text3);font-size:12px;padding:12px 0;">No data yet</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Alerts per Minute</span>
+      </div>
+      <div class="spark-wrap">
+        <canvas id="sparkCanvas"></canvas>
+      </div>
+      <div class="panel-header" style="border-top:1px solid var(--border);border-bottom:none;margin-top:0;">
+        <span class="panel-title">Protocols</span>
+      </div>
+      <div class="bar-list" id="protoBars">
+        <div style="color:var(--text3);font-size:12px;padding:4px 0;">No data yet</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="grid-2">
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Live Tracking</span>
+        <span class="panel-count" id="trackingState">Idle</span>
+      </div>
+      <div class="tracking-panel">
+        <div class="tracking-row">
+          <input type="text" id="trackingInput" placeholder="Track an IP, SID, protocol, or keyword">
+          <button class="toggle-btn" id="trackingToggle" onclick="toggleTracking()">Start Tracking</button>
+        </div>
+        <div class="tracking-chip" id="trackingChip">Tracking target: none</div>
+        <div class="tracking-metrics">
+          <div class="tracking-metric">
+            <div class="tracking-metric-label">Matches</div>
+            <div class="tracking-metric-value" id="trackingMatches">0</div>
+          </div>
+          <div class="tracking-metric">
+            <div class="tracking-metric-label">Last Match</div>
+            <div class="tracking-metric-value" id="trackingLastTime" style="font-size:14px;">—</div>
+          </div>
+          <div class="tracking-metric">
+            <div class="tracking-metric-label">Latest Event</div>
+            <div class="tracking-metric-value" id="trackingLastMsg" style="font-size:14px;">No tracked event yet</div>
+          </div>
+        </div>
+        <div class="status-text">When tracking is active, the feed filters live to matching alerts as they arrive.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Add Rule</span>
+        <span class="panel-count" id="rulesPathLabel">local.rules</span>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label for="ruleMsg">Message</label>
+          <input id="ruleMsg" type="text" placeholder="SSH Brute Force Attempt">
+        </div>
+        <div class="field">
+          <label for="ruleProto">Protocol</label>
+          <select id="ruleProto">
+            <option value="tcp">tcp</option>
+            <option value="udp">udp</option>
+            <option value="icmp">icmp</option>
+            <option value="ip">ip</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="ruleSrcNet">Source Net</label>
+          <input id="ruleSrcNet" type="text" value="any">
+        </div>
+        <div class="field">
+          <label for="ruleSrcPort">Source Port</label>
+          <input id="ruleSrcPort" type="text" value="any">
+        </div>
+        <div class="field">
+          <label for="ruleDstNet">Destination Net</label>
+          <input id="ruleDstNet" type="text" value="any">
+        </div>
+        <div class="field">
+          <label for="ruleDstPort">Destination Port</label>
+          <input id="ruleDstPort" type="text" placeholder="22">
+        </div>
+        <div class="field">
+          <label for="ruleSid">SID</label>
+          <input id="ruleSid" type="number" value="1001001" min="1">
+        </div>
+        <div class="field">
+          <label for="rulePriority">Priority</label>
+          <select id="rulePriority">
+            <option value="">None</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+        <div class="field field-wide">
+          <label for="ruleContent">Content Match</label>
+          <input id="ruleContent" type="text" placeholder="Optional content match">
+        </div>
+      </div>
+      <div class="field-help">
+        Rules are appended to the backend-configured `local.rules` file. Snort still needs a reload or restart before the rule becomes active.
+      </div>
+      <div class="form-actions">
+        <span class="status-text" id="ruleStatus">Ready to create a rule.</span>
+        <button class="action-btn" onclick="submitRule()">Save Rule</button>
+      </div>
+      <div class="panel-header" style="border-top:1px solid var(--border);">
+        <span class="panel-title">Saved Rules</span>
+        <span class="panel-count" id="rulesCount">0 rules</span>
+      </div>
+      <div class="rules-list" id="rulesList">
+        <div class="empty">
+          <div class="empty-icon">#</div>
+          No saved rules found
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="conn-error" id="connError">
+  Cannot connect to server · Make sure server.py is running on port 8888
+</div>
+
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>
