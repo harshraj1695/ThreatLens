@@ -18,6 +18,8 @@ snort_project/
 │   │   ├── css/dashboard.css  # Dashboard styles
 │   │   └── js/dashboard.js    # Dashboard client logic
 │   └── templates/index.html   # Dashboard markup
+├── scripts/
+│   └── setup_and_run.sh       # Installs runtime packages and starts Snort + dashboard
 ├── server.py                  # Thin entrypoint for starting the app
 └── README.md
 ```
@@ -56,6 +58,27 @@ export SNORT_DASHBOARD_PORT=8888
 ---
 
 ## Running
+
+### One-command startup
+
+If you want one script that prepares the local runtime and starts both Snort and the dashboard:
+
+```bash
+sudo bash scripts/setup_and_run.sh
+```
+
+What it does:
+- installs small runtime packages like `python3`, `curl`, and `lsof` when a supported package manager is available
+- checks that your Snort binary and config exist
+- creates `/var/log/snort`
+- starts Snort with AFPacket on `eth0` by default
+- starts the dashboard server on port `8888`
+
+You can override defaults with environment variables:
+
+```bash
+sudo SNORT_INTERFACE=eth0 SNORT_DASHBOARD_PORT=8890 bash scripts/setup_and_run.sh
+```
 
 You need **two terminals** running simultaneously.
 
