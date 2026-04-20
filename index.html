@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snort3 IDS Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --bg2: #161b22;
+    --bg3: #1c2333;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #6e7681;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --orange: #f0883e;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --teal: #39d353;
+    --radius: 8px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, #f85149, #f0883e);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; color: #fff;
+  }
+  .header h1 { font-size: 16px; font-weight: 600; }
+  .header-sub { font-size: 12px; color: var(--text2); }
+
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse 2s infinite;
+  }
+  .status-dot.offline { background: var(--text3); box-shadow: none; animation: none; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .live-badge {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
+    padding: 3px 8px; border-radius: 4px;
+    background: rgba(63, 185, 80, 0.15);
+    color: var(--green);
+    border: 1px solid rgba(63, 185, 80, 0.3);
+  }
+  .iface-badge {
+    font-size: 11px; padding: 3px 8px; border-radius: 4px;
+    background: rgba(88, 166, 255, 0.1);
+    color: var(--accent);
+    border: 1px solid rgba(88, 166, 255, 0.2);
+  }
+
+  /* ── Layout ── */
+  .main { padding: 20px 24px; max-width: 1600px; }
+
+  /* ── Stat Cards ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .stat-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .stat-value { font-size: 28px; font-weight: 700; line-height: 1; }
+  .stat-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .c-red { color: var(--red); }
+  .c-orange { color: var(--orange); }
+  .c-yellow { color: var(--yellow); }
+  .c-green { color: var(--green); }
+  .c-accent { color: var(--accent); }
+  .c-purple { color: var(--purple); }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-title { font-size: 13px; font-weight: 600; }
+  .panel-count { font-size: 11px; color: var(--text2); }
+  .panel-body { padding: 0; }
+
+  /* ── Alert Feed ── */
+  .alert-feed { max-height: 420px; overflow-y: auto; }
+  .alert-feed::-webkit-scrollbar { width: 4px; }
+  .alert-feed::-webkit-scrollbar-track { background: transparent; }
+  .alert-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .alert-row {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 90px 70px 1fr 120px 130px;
+    gap: 10px;
+    align-items: center;
+    font-size: 12px;
+    transition: background 0.15s;
+    animation: slideIn 0.3s ease;
+  }
+  .alert-row:hover { background: var(--bg3); }
+  .alert-row:last-child { border-bottom: none; }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .alert-time { color: var(--text3); font-family: monospace; font-size: 11px; }
+  .alert-msg { font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .alert-ip { font-family: monospace; color: var(--text2); font-size: 11px; }
+
+  .sev-badge {
+    display: inline-block;
+    padding: 2px 6px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .sev-critical { background: rgba(248,81,73,0.2); color: var(--red); border: 1px solid rgba(248,81,73,0.3); }
+  .sev-high { background: rgba(240,136,62,0.2); color: var(--orange); border: 1px solid rgba(240,136,62,0.3); }
+  .sev-medium { background: rgba(210,153,34,0.2); color: var(--yellow); border: 1px solid rgba(210,153,34,0.3); }
+  .sev-low { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.25); }
+
+  .cat-badge {
+    display: inline-block;
+    padding: 2px 7px; border-radius: 4px;
+    font-size: 10px; font-weight: 600;
+    background: rgba(88,166,255,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(88,166,255,0.2);
+    white-space: nowrap;
+  }
+
+  .proto-pill {
+    display: inline-block;
+    padding: 1px 6px; border-radius: 10px;
+    font-size: 10px; font-weight: 600;
+    background: var(--bg3);
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+
+  /* ── Alert table header ── */
+  .alert-header {
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 90px 70px 1fr 120px 130px;
+    gap: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: var(--bg3);
+  }
+
+  /* ── Bar chart ── */
+  .bar-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .bar-item { display: flex; flex-direction: column; gap: 4px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 12px; }
+  .bar-label-text { color: var(--text); font-family: monospace; }
+  .bar-label-count { color: var(--text2); font-weight: 600; }
+  .bar-track { background: var(--bg3); border-radius: 3px; height: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+  .bar-fill.ip { background: linear-gradient(90deg, var(--red), var(--orange)); }
+  .bar-fill.cat { background: linear-gradient(90deg, var(--accent), var(--purple)); }
+  .bar-fill.proto { background: linear-gradient(90deg, var(--teal), var(--green)); }
+
+  /* ── Mini sparkline chart ── */
+  .spark-wrap { padding: 12px 16px 16px; }
+  #sparkCanvas { width: 100%; height: 80px; }
+
+  /* ── Category donut ── */
+  .donut-wrap { padding: 16px; display: flex; gap: 16px; align-items: center; }
+  #donutCanvas { width: 100px; height: 100px; flex-shrink: 0; }
+  .donut-legend { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Filter bar ── */
+  .filter-bar {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; align-items: center;
+    background: var(--bg3);
+  }
+  .filter-bar label { font-size: 11px; color: var(--text3); }
+  .filter-bar select, .filter-bar input {
+    background: var(--bg2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 5px; padding: 4px 8px;
+    font-size: 12px; outline: none;
+  }
+  .filter-bar select:focus, .filter-bar input:focus { border-color: var(--accent); }
+  .filter-clear {
+    margin-left: auto; font-size: 11px; color: var(--text3);
+    cursor: pointer; padding: 3px 8px; border-radius: 4px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text2);
+  }
+  .filter-clear:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Empty state ── */
+  .empty {
+    padding: 40px 16px; text-align: center;
+    color: var(--text3); font-size: 13px;
+  }
+  .empty-icon { font-size: 32px; margin-bottom: 8px; }
+
+  /* ── Connection error ── */
+  .conn-error {
+    position: fixed; bottom: 20px; right: 20px;
+    background: rgba(248,81,73,0.15); border: 1px solid rgba(248,81,73,0.4);
+    color: var(--red); padding: 10px 16px; border-radius: 8px;
+    font-size: 12px; display: none;
+  }
+
+  @media (max-width: 1100px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: 1fr 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .alert-row { grid-template-columns: 80px 60px 1fr 100px; }
+    .alert-header { grid-template-columns: 80px 60px 1fr 100px; }
+    .alert-row > .alert-ip-dst { display: none; }
+    .alert-header > .col-dst { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">S3</div>
+    <div>
+      <div class="header h1" style="font-size:15px;font-weight:600;">Snort3 IDS Dashboard</div>
+      <div class="header-sub">AFPacket · Real-time intrusion detection</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="iface-badge" id="ifaceBadge">eth0</span>
+    <div class="status-dot offline" id="statusDot"></div>
+    <span class="live-badge" id="liveBadge">CONNECTING</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Stat Cards -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Alerts</div>
+      <div class="stat-value c-accent" id="statTotal">0</div>
+      <div class="stat-sub">since monitoring started</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Critical / High</div>
+      <div class="stat-value c-red" id="statCritical">0</div>
+      <div class="stat-sub">priority 1–2 alerts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Unique Source IPs</div>
+      <div class="stat-value c-orange" id="statIPs">0</div>
+      <div class="stat-sub">attacking hosts</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Last Alert</div>
+      <div class="stat-value" id="statLast" style="font-size:13px;font-weight:500;color:var(--text2);padding-top:6px;">—</div>
+      <div class="stat-sub" id="statLastMsg">no alerts yet</div>
+    </div>
+  </div>
+
+  <!-- Live feed + top IPs -->
+  <div class="grid-3">
+
+    <!-- Alert Feed -->
+    <div class="panel" style="grid-column: span 2;">
+      <div class="panel-header">
+        <span class="panel-title">Live Alert Feed</span>
+        <span class="panel-count" id="feedCount">0 alerts</span>
+      </div>
+      <div class="filter-bar">
+        <label>Severity</label>
+        <select id="filterSev" onchange="applyFilters()">
+          <option value="">All</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <label>Category</label>
+        <select id="filterCat" onchange="applyFilters()">
+          <option value="">All</option>
+        </select>
+        <label>Search</label>
+        <input type="text" id="filterSearch" placeholder="IP or message..." oninput="applyFilters()" style="width:160px;">
+        <button class="filter-clear" onclick="clearFilters()">Clear</button>
+      </div>
+      <div class="alert-header">
+        <span>Time</span>
+        <span>Proto</span>
+        <span>Message</span>
+        <span>Category</span>
+        <span class="col-dst">Source → Dest</span>
+      </div>
+      <div class="alert-feed" id="alertFeed">
+        <div class="empty">
+          <div class="empty-icon">🛡</div>
+          Waiting for Snort alerts...<br>
+          <small style="color:var(--text3);margin-top:4px;display:block;">Make sure Snort is running with AFPacket on eth0</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Source IPs -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Top Source IPs</span>
+      </div>
+      <div class="bar-list" id="topIPs">
+        <div style="color:var(--text3);font-size:12px;padding:12px 0;">No data yet</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Categories + Protocol + Sparkline -->
+  <div class="grid-2">
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Attack Categories</span>
+      </div>
+      <div class="bar-list" id="catBars">
+        <div style="color:var(--text3);font-size:12px;padding:12px 0;">No data yet</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Alerts per Minute</span>
+      </div>
+      <div class="spark-wrap">
+        <canvas id="sparkCanvas"></canvas>
+      </div>
+      <div class="panel-header" style="border-top:1px solid var(--border);border-bottom:none;margin-top:0;">
+        <span class="panel-title">Protocols</span>
+      </div>
+      <div class="bar-list" id="protoBars">
+        <div style="color:var(--text3);font-size:12px;padding:4px 0;">No data yet</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="conn-error" id="connError">
+  Cannot connect to server · Make sure server.py is running on port 8888
+</div>
+
+<script>
+const API = 'http://localhost:8888';
+let allAlerts = [];
+let stats = {};
+let connected = false;
+
+// ── Severity badge ──────────────────────────────────────────────────────────
+function sevBadge(sev) {
+  return `<span class="sev-badge sev-${sev}">${sev}</span>`;
+}
+
+function catBadge(cat) {
+  return `<span class="cat-badge">${cat}</span>`;
+}
+
+function protoPill(proto) {
+  return `<span class="proto-pill">${proto}</span>`;
+}
+
+// ── Render alert row ─────────────────────────────────────────────────────────
+function alertRow(a) {
+  const time = a.timestamp.split('.')[0];
+  const src = a.sport ? `${a.src}:${a.sport}` : a.src;
+  const dst = a.dport ? `${a.dst}:${a.dport}` : a.dst;
+  return `<div class="alert-row">
+    <span class="alert-time">${time}</span>
+    <span>${protoPill(a.proto)}</span>
+    <span class="alert-msg" title="${a.msg}">${a.msg}</span>
+    <span>${catBadge(a.category)}</span>
+    <span class="alert-ip alert-ip-dst" style="font-size:10px;">${src}<br><span style="color:var(--text3)">→ ${dst}</span></span>
+  </div>`;
+}
+
+// ── Apply filters ────────────────────────────────────────────────────────────
+function applyFilters() {
+  const sev = document.getElementById('filterSev').value;
+  const cat = document.getElementById('filterCat').value;
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+
+  const filtered = allAlerts.filter(a => {
+    if (sev && a.severity !== sev) return false;
+    if (cat && a.category !== cat) return false;
+    if (search && !a.msg.toLowerCase().includes(search) && !a.src.includes(search) && !a.dst.includes(search)) return false;
+    return true;
+  });
+
+  const feed = document.getElementById('alertFeed');
+  document.getElementById('feedCount').textContent = `${filtered.length} alerts`;
+
+  if (filtered.length === 0) {
+    feed.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>No alerts match filters</div>`;
+    return;
+  }
+
+  feed.innerHTML = filtered.slice(0, 100).map(alertRow).join('');
+}
+
+function clearFilters() {
+  document.getElementById('filterSev').value = '';
+  document.getElementById('filterCat').value = '';
+  document.getElementById('filterSearch').value = '';
+  applyFilters();
+}
+
+// ── Update category filter dropdown ─────────────────────────────────────────
+function updateCatFilter(categories) {
+  const sel = document.getElementById('filterCat');
+  const current = sel.value;
+  const cats = new Set(categories.map(c => c.name));
+  sel.innerHTML = '<option value="">All</option>' +
+    [...cats].map(c => `<option value="${c}"${c===current?' selected':''}>${c}</option>`).join('');
+}
+
+// ── Bar list renderer ────────────────────────────────────────────────────────
+function renderBars(containerId, items, colorClass, labelKey = 'ip') {
+  const el = document.getElementById(containerId);
+  if (!items || items.length === 0) {
+    el.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:12px 0;">No data yet</div>`;
+    return;
+  }
+  const max = items[0].count;
+  el.innerHTML = items.slice(0, 8).map(item => {
+    const label = item[labelKey] || item.name || item.ip;
+    const pct = Math.round((item.count / max) * 100);
+    return `<div class="bar-item">
+      <div class="bar-label">
+        <span class="bar-label-text">${label}</span>
+        <span class="bar-label-count">${item.count}</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill ${colorClass}" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ── Sparkline canvas ─────────────────────────────────────────────────────────
+function drawSparkline(data) {
+  const canvas = document.getElementById('sparkCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.offsetWidth;
+  const h = canvas.offsetHeight || 80;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  if (!data || data.length < 2) {
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('Not enough data yet', 8, h / 2 + 4);
+    return;
+  }
+
+  const counts = data.map(d => d.count);
+  const max = Math.max(...counts, 1);
+  const pad = { left: 8, right: 8, top: 8, bottom: 20 };
+  const cw = w - pad.left - pad.right;
+  const ch = h - pad.top - pad.bottom;
+
+  const xStep = cw / (data.length - 1);
+  const points = data.map((d, i) => ({
+    x: pad.left + i * xStep,
+    y: pad.top + ch - (d.count / max) * ch,
+  }));
+
+  // Fill
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  points.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(points[points.length - 1].x, pad.top + ch);
+  ctx.lineTo(points[0].x, pad.top + ch);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
+  grad.addColorStop(0, 'rgba(88,166,255,0.3)');
+  grad.addColorStop(1, 'rgba(88,166,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  points.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = '#58a6ff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // X labels
+  ctx.fillStyle = '#6e7681';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  const step = Math.max(1, Math.floor(data.length / 5));
+  data.forEach((d, i) => {
+    if (i % step === 0) ctx.fillText(d.time, points[i].x, h - 4);
+  });
+}
+
+// ── Update stats panel ───────────────────────────────────────────────────────
+function updateStats(s) {
+  stats = s;
+  document.getElementById('statTotal').textContent = s.total.toLocaleString();
+
+  const critHigh = (s.severity.critical || 0) + (s.severity.high || 0);
+  document.getElementById('statCritical').textContent = critHigh.toLocaleString();
+  document.getElementById('statIPs').textContent = s.top_src.length;
+
+  renderBars('topIPs', s.top_src, 'ip', 'ip');
+  renderBars('catBars', s.categories, 'cat', 'name');
+  renderBars('protoBars', s.protocols, 'proto', 'name');
+  updateCatFilter(s.categories);
+  drawSparkline(s.alerts_per_minute);
+}
+
+// ── Load initial alerts ──────────────────────────────────────────────────────
+async function loadAlerts() {
+  try {
+    const r = await fetch(`${API}/api/alerts`);
+    const data = await r.json();
+    allAlerts = data;
+    if (allAlerts.length > 0) {
+      const last = allAlerts[0];
+      document.getElementById('statLast').textContent = last.timestamp.split('.')[0];
+      document.getElementById('statLastMsg').textContent = last.msg.slice(0, 40) + (last.msg.length > 40 ? '…' : '');
+    }
+    applyFilters();
+    document.getElementById('connError').style.display = 'none';
+  } catch (e) {
+    document.getElementById('connError').style.display = 'block';
+  }
+}
+
+async function loadStats() {
+  try {
+    const r = await fetch(`${API}/api/stats`);
+    const data = await r.json();
+    updateStats(data);
+  } catch (e) {}
+}
+
+// ── SSE live stream ──────────────────────────────────────────────────────────
+function connectSSE() {
+  const es = new EventSource(`${API}/api/stream`);
+
+  es.onopen = () => {
+    connected = true;
+    document.getElementById('statusDot').classList.remove('offline');
+    document.getElementById('liveBadge').textContent = 'LIVE';
+    document.getElementById('connError').style.display = 'none';
+  };
+
+  es.onmessage = (e) => {
+    try {
+      const alert = JSON.parse(e.data);
+      allAlerts.unshift(alert);
+      if (allAlerts.length > 500) allAlerts = allAlerts.slice(0, 500);
+
+      document.getElementById('statLast').textContent = alert.timestamp.split('.')[0];
+      document.getElementById('statLastMsg').textContent = alert.msg.slice(0, 40) + (alert.msg.length > 40 ? '…' : '');
+
+      applyFilters();
+      loadStats();
+    } catch (e) {}
+  };
+
+  es.onerror = () => {
+    connected = false;
+    document.getElementById('statusDot').classList.add('offline');
+    document.getElementById('liveBadge').textContent = 'RECONNECTING';
+    setTimeout(connectSSE, 3000);
+    es.close();
+  };
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+(async () => {
+  await loadAlerts();
+  await loadStats();
+  connectSSE();
+  setInterval(loadStats, 5000);
+})();
+</script>
+</body>
+</html>
