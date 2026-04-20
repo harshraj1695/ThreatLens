@@ -111,11 +111,45 @@ function applyFilters() {
   feed.innerHTML = filtered.slice(0, 100).map(alertRow).join('');
 }
 
-function clearFilters() {
+function resetLastAlertUi() {
+  document.getElementById('statLast').textContent = '—';
+  document.getElementById('statLastMsg').textContent = 'no alerts yet';
+}
+
+function resetTrackingUi() {
+  tracking.matches = 0;
+  tracking.lastAlert = null;
+  if (tracking.enabled && tracking.query) {
+    tracking.matches = allAlerts.filter(matchesTracking).length;
+    tracking.lastAlert = allAlerts.find(matchesTracking) || null;
+  }
+  updateTrackingUi();
+}
+
+async function clearFilters() {
   document.getElementById('filterSev').value = '';
   document.getElementById('filterCat').value = '';
   document.getElementById('filterSearch').value = '';
-  applyFilters();
+
+  try {
+    const response = await fetch(`${API}/api/alerts/clear`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || `HTTP ${response.status}`);
+    }
+
+    allAlerts = [];
+    resetLastAlertUi();
+    resetTrackingUi();
+    applyFilters();
+    await loadStats();
+    document.getElementById('connError').style.display = 'none';
+  } catch (error) {
+    document.getElementById('connError').style.display = 'block';
+  }
 }
 
 function toggleTracking() {
@@ -370,12 +404,10 @@ async function loadAlerts() {
       const last = allAlerts[0];
       document.getElementById('statLast').textContent = last.timestamp.split('.')[0];
       document.getElementById('statLastMsg').textContent = last.msg.slice(0, 40) + (last.msg.length > 40 ? '…' : '');
+    } else {
+      resetLastAlertUi();
     }
-    if (tracking.enabled && tracking.query) {
-      tracking.matches = allAlerts.filter(matchesTracking).length;
-      tracking.lastAlert = allAlerts.find(matchesTracking) || null;
-      updateTrackingUi();
-    }
+    resetTrackingUi();
     applyFilters();
     document.getElementById('connError').style.display = 'none';
   } catch (e) {

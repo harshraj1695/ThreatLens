@@ -9,7 +9,11 @@ def current_bucket():
 
 class DashboardState:
     def __init__(self):
-        self.data = {
+        self.data = self._empty_data()
+        self.lock = threading.Lock()
+
+    def _empty_data(self):
+        return {
             "alerts": [],
             "total": 0,
             "src_ip_counts": defaultdict(int),
@@ -20,7 +24,10 @@ class DashboardState:
             "last_minute_bucket": None,
             "last_minute_count": 0,
         }
-        self.lock = threading.Lock()
+
+    def clear(self):
+        with self.lock:
+            self.data = self._empty_data()
 
     def update(self, alert):
         with self.lock:
@@ -82,4 +89,3 @@ class DashboardState:
                     "rules_file": rules_file,
                 },
             }
-

@@ -102,6 +102,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        if path == "/api/alerts/clear":
+            STATE.clear()
+            self.send_json({"ok": True, "message": "Detection history cleared."})
+            return
+
         if path != "/api/rules":
             self.send_response(404)
             self.end_headers()
