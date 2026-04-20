@@ -2,6 +2,8 @@
 
 A real-time intrusion detection dashboard for Snort3 using AFPacket. Parses Snort alert logs and displays them live in a web UI with attack categorization, source IP tracking, and severity filtering.
 
+![dashboard](Images/Screenshot%20from%202026-04-20%2017-12-29.png)
+![dashboard2](Images/image.png)
 ---
 
 ## Project Structure
